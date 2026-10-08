@@ -1,0 +1,40 @@
+GSP395 – Create and Manage AlloyDB Instances: Challenge Lab
+Paste each block into Cloud Shell. Use the copy button.
+
+1. Setup
+bash
+export REGION=us-east1   # change to the GCP Region on your lab page
+export PROJECT_ID=$(gcloud config get-value project)
+export VM_ZONE=$(gcloud compute instances list --filter="name=alloydb-client" --format="value(zone.basename())")
+gcloud services enable alloydb.googleapis.com
+
+2. Cluster and instance (10–15 min)
+bash
+gcloud beta alloydb clusters create lab-cluster --password=Change3Me --network=peering-network --region=$REGION --project=$PROJECT_ID
+gcloud beta alloydb instances create lab-instance --instance-type=PRIMARY --cpu-count=2 --region=$REGION --cluster=lab-cluster --project=$PROJECT_ID
+export ALLOYDB=$(gcloud beta alloydb instances describe lab-instance --cluster=lab-cluster --region=$REGION --format="value(ipAddress)")
+echo $ALLOYDB
+Check my progress: Create a cluster and instance
+
+3. Tables and data
+bash
+cat > hr.sql <<'SQL'
+CREATE TABLE regions (region_id bigint NOT NULL, region_name varchar(25));
+ALTER TABLE regions ADD PRIMARY KEY (region_id);
+CREATE TABLE countries (country_id char(2) NOT NULL, country_name varchar(40), region_id bigint);
+ALTER TABLE countries ADD PRIMARY KEY (country_id);
+CREATE TABLE departments (department_id smallint NOT NULL, department_name varchar(30), manager_id integer, location_id smallint);
+ALTER TABLE departments ADD PRIMARY KEY (department_id);
+INSERT INTO regions VALUES (1,'Europe'),(2,'Americas'),(3,'Asia'),(4,'Middle East and Africa');
+INSERT INTO countries VALUES ('IT','Italy',1),('JP','Japan',3),('US','United States of America',2),('CA','Canada',2),('CN','China',3),('IN','India',3),('AU','Australia',3),('ZW','Zimbabwe',4),('SG','Singapore',3);
+INSERT INTO departments VALUES (10,'Administration',200,1700),(20,'Marketing',201,1800),(30,'Purchasing',114,1700),(40,'Human Resources',203,2400),(50,'Shipping',121,1500),(60,'IT',103,1400);
+SQL
+gcloud compute ssh alloydb-client --zone=$VM_ZONE --quiet --command="echo $ALLOYDB > alloydbip.txt; PGPASSWORD=Change3Me psql -h $ALLOYDB -U postgres" < hr.sql
+Check my progress: Create and load tables
+
+4. Read pool and backup (10–15 min)
+bash
+gcloud beta alloydb backups create lab-backup --cluster=lab-cluster --region=$REGION --project=$PROJECT_ID --async
+gcloud beta alloydb instances create lab-instance-rp1 --instance-type=READ_POOL --cpu-count=2 --read-pool-node-count=2 --region=$REGION --cluster=lab-cluster --project=$PROJECT_ID
+Check my progress: Create a read pool instance, then Create a backup
+
